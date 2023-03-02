@@ -18,22 +18,29 @@ class VnFamily:
 
     @property
     def dim(self):
-        return (self.a.lower == self.a.upper) + \
-               (self.b.lower == self.b.upper) + \
-               (self.delta.lower == self.delta.upper) + \
+        return (self.a.lower < self.a.upper) + \
+               (self.b.lower < self.b.upper) + \
+               (self.delta.lower < self.delta.upper) + \
                (self.c > 0) * (self.k_max)
+
+    def __repr__(self):
+        vals = [f"{v}: [{getattr(self, v).lower}, {getattr(self, v).upper}]" for v in ["a", "b", "delta"]] + [
+            f"c: {self.c}; k max: {self.k_max}"]
+        return "; ".join(vals[:self.dim])
 
 
 def get_k_eigenvalues(a: Union[np.ndarray, float], b: Union[np.ndarray, float], delta: Union[np.ndarray, float],
                       k_max: int):
-    k = np.arange(1, k_max+1)
+    k = np.arange(1, k_max + 1)
     if np.allclose(delta, 0.5):
         eigen_sin = -2 * np.cos(2 * np.pi * a[:, np.newaxis] * np.ones((1, len(k))))
         eigen_cos = -2 * np.sin(2 * np.pi * a[:, np.newaxis] * np.ones((1, len(k))))
     else:
         # Not so precise, error in 1e-2
-        eigen_cos = np.sin(2 * np.pi * k[np.newaxis, :] * (a + delta)) - np.sin(2 * np.pi * k[np.newaxis, :] * a)
-        eigen_sin = np.cos(2 * np.pi * k[np.newaxis, :] * (a + delta)) - np.cos(2 * np.pi * k[np.newaxis, :] * a)
+        eigen_cos = np.sin(2 * np.pi * k[np.newaxis, :] * (a + delta)[:, np.newaxis]) - np.sin(
+            2 * np.pi * k[np.newaxis, :] * a[:, np.newaxis])
+        eigen_sin = np.cos(2 * np.pi * k[np.newaxis, :] * (a + delta)[:, np.newaxis]) - np.cos(
+            2 * np.pi * k[np.newaxis, :] * a[:, np.newaxis])
         # eigen_cos = (np.cos(2 * np.pi * k * delta)-1)*np.sin(2 * np.pi * k * a)
         # - np.cos(2 * np.pi * k * a)*np.sin(2 * np.pi * k * delta)
         # eigen_sin = (np.cos(2 * np.pi * k * delta)-1)*np.cos(2 * np.pi * k * a)
@@ -73,6 +80,5 @@ if __name__ == "__main__":
     for k in range(1, k_max, 2):
         eigen_sin = b * np.cos(2 * np.pi * a) / (2 * np.pi * k)
         eigen_cos = b * np.sin(2 * np.pi * a) / (2 * np.pi * k)
-        print(np.allclose(np.transpose([eigen_cos, eigen_sin]), eigenvalues[:, [2*k-1, 2*k]]))
+        print(np.allclose(np.transpose([eigen_cos, eigen_sin]), eigenvalues[:, [2 * k - 1, 2 * k]]))
         # print(np.transpose([eigen_cos, eigen_sin]) - get_k_eigenvalues(a, b, delta, k))
-

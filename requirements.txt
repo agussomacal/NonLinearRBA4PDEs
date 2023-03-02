@@ -2,9 +2,11 @@ pip
 setuptools
 numpy
 matplotlib==3.5.0  # because in pycharm does not work by default
+seaborn
 scikit-learn
 python-benedict
 joblib
 pathos
 tqdm
 pandas
+makefun
