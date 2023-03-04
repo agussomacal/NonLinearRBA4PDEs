@@ -1,8 +1,5 @@
-from functools import partial
-
 import numpy as np
 import pandas as pd
-import seaborn as sns
 from sklearn.linear_model import LinearRegression
 
 from src import config
@@ -12,18 +9,22 @@ from src.viz_utils import perplex_plot, generic_plot
 from src.vn_families import VnFamily, get_k_eigenvalues, vn_family_sampler, Bounds
 
 
-def learn_eigenvalues(n_train, n_test, k_max, vn_family, model, num_of_known_eigenvalues):
-    a, b, delta = vn_family_sampler(n_test + n_train, a_limits=vn_family.a, b_limits=vn_family.b,
-                                    delta_limits=vn_family.delta)
-    # shape(n, 1+2*k_max)
-    eigenvalues = get_k_eigenvalues(a, b, delta, k_max)
-    model.fit(eigenvalues[n_test:, :num_of_known_eigenvalues * 2 - 1],
-              eigenvalues[n_test:, num_of_known_eigenvalues * 2 - 1:])
-    predictions = model.predict(eigenvalues[:n_test, :num_of_known_eigenvalues * 2 - 1])
-    error = eigenvalues[:n_test, num_of_known_eigenvalues * 2 - 1:] - predictions
-    return {
-        "error": error
-    }
+def learn_eigenvalues(model):
+    def decorated_function(n_train, n_test, k_max, vn_family, num_of_known_eigenvalues):
+        a, b, delta = vn_family_sampler(n_test + n_train, a_limits=vn_family.a, b_limits=vn_family.b,
+                                        delta_limits=vn_family.delta)
+        # shape(n, 1+2*k_max)
+        eigenvalues = get_k_eigenvalues(a, b, delta, k_max)
+        model.fit(eigenvalues[n_test:, :num_of_known_eigenvalues * 2 - 1],
+                  eigenvalues[n_test:, num_of_known_eigenvalues * 2 - 1:])
+        predictions = model.predict(eigenvalues[:n_test, :num_of_known_eigenvalues * 2 - 1])
+        error = eigenvalues[:n_test, num_of_known_eigenvalues * 2 - 1:] - predictions
+        return {
+            "error": error
+        }
+
+    decorated_function.__name__ = str(model)
+    return decorated_function
 
 
 @perplex_plot
@@ -37,13 +38,26 @@ def plot_error(fig, ax, num_of_known_eigenvalues, error, model):
 
 
 if __name__ == "__main__":
+    # name="NonLinearRBA_V1V2"
+    # vn_family = [
+    #     VnFamily(a=Bounds(lower=0, upper=1)),
+    #     VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1)),
+    # ]
+    name = "NonLinearRBA"
+    vn_family = [
+        VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.4, upper=0.5)),
+        VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.25, upper=0.5)),
+        VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.1, upper=0.5)),
+        VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=1e-5, upper=0.5))
+    ]
+
     data_manager = DataManager(
         path=config.results_path,
-        name="NonLinearRBA",
+        name=name,
         format=JOBLIB
     )
     lab = LabPipeline()
-    lab.define_new_block_of_functions("experiments", learn_eigenvalues)
+    lab.define_new_block_of_functions("experiments", learn_eigenvalues(LinearRegression()))
 
     lab.execute(
         datamanager=data_manager,
@@ -51,24 +65,20 @@ if __name__ == "__main__":
         forget=False,
         recalculate=False,
         n_test=[1000],
-        n_train=[100, 1000],
+        n_train=[1000],
         num_of_known_eigenvalues=[1, 2, 3, 5, 9, 21],
         k_max=[500],
-        vn_family=[
-            # VnFamily(a=Bounds(lower=0, upper=1)),
-            # VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1)),
-            VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.4, upper=0.5)),
-            VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.25, upper=0.5)),
-            VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.1, upper=0.5)),
-            VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=1e-5, upper=0.5))
-        ],
-        model=[LinearRegression()]
+        vn_family=vn_family
     )
 
     # import matplotlib as mpl
     # mpl.use('TkAgg')  # !IMPORTANT
-    generic_plot(x="num_of_known_eigenvalues", y="mse", label="vn_family", log="xy",
-                 seaborn_func=partial(sns.lineplot, markers=True))\
-        (data_manager, mse=lambda error: np.sqrt(np.mean(error ** 2)), axes_by=["n_train"])
-
-    # plot_error(data_manager, axes_by=["n_train", "vn_family"])
+    generic_plot(
+        data_manager, x="k", y="mse", label="num_of_known_eigenvalues", log="xy",
+        plot_func=lambda ax, *args, **kwargs: ax.plot(marker=".", *args, **kwargs),
+        mse=lambda error: np.sqrt(np.mean(error ** 2, axis=0)),
+        k=lambda k_max, num_of_known_eigenvalues: np.append(0, np.repeat(np.arange(1, k_max + 1), 2))[
+                                                  num_of_known_eigenvalues * 2 - 1:],
+        num_of_known_eigenvalues=1,
+        axes_by="vn_family"
+    )
