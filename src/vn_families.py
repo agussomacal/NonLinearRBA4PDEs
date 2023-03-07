@@ -32,22 +32,29 @@ class VnFamily:
 def get_k_eigenvalues(a: Union[np.ndarray, float], b: Union[np.ndarray, float], delta: Union[np.ndarray, float],
                       k_max: int):
     k = np.arange(1, k_max + 1)
-    if np.allclose(delta, 0.5):
-        eigen_sin = -2 * np.cos(2 * np.pi * a[:, np.newaxis] * np.ones((1, len(k))))
-        eigen_cos = -2 * np.sin(2 * np.pi * a[:, np.newaxis] * np.ones((1, len(k))))
-    else:
-        # Not so precise, error in 1e-2
-        eigen_cos = np.sin(2 * np.pi * k[np.newaxis, :] * (a + delta)[:, np.newaxis]) - np.sin(
-            2 * np.pi * k[np.newaxis, :] * a[:, np.newaxis])
-        eigen_sin = np.cos(2 * np.pi * k[np.newaxis, :] * (a + delta)[:, np.newaxis]) - np.cos(
-            2 * np.pi * k[np.newaxis, :] * a[:, np.newaxis])
-        # eigen_cos = (np.cos(2 * np.pi * k * delta)-1)*np.sin(2 * np.pi * k * a)
-        # - np.cos(2 * np.pi * k * a)*np.sin(2 * np.pi * k * delta)
-        # eigen_sin = (np.cos(2 * np.pi * k * delta)-1)*np.cos(2 * np.pi * k * a)
-        # - np.sin(2 * np.pi * k * a)*np.sin(2 * np.pi * k * delta)
+    eigen_cos = np.sin(np.pi * k[np.newaxis, :] * delta[:, np.newaxis]) * np.cos(
+        np.pi * k[np.newaxis, :] * (2 * a + delta)[:, np.newaxis])
+    eigen_sin = -np.sin(np.pi * k[np.newaxis, :] * delta[:, np.newaxis]) * np.sin(
+        np.pi * k[np.newaxis, :] * (2 * a + delta)[:, np.newaxis])
+
+    # if np.allclose(delta, 0.5):
+    #     eigen_sin = -2 * np.cos(2 * np.pi * a[:, np.newaxis] * np.ones((1, len(k))))
+    #     eigen_cos = -2 * np.sin(2 * np.pi * a[:, np.newaxis] * np.ones((1, len(k))))
+    # else:
+    #     # Not so precise, error in 1e-2
+    #     eigen_cos = np.sin(2 * np.pi * k[np.newaxis, :] * (a + delta)[:, np.newaxis]) - np.sin(
+    #         2 * np.pi * k[np.newaxis, :] * a[:, np.newaxis])
+    #     eigen_sin = np.cos(2 * np.pi * k[np.newaxis, :] * (a + delta)[:, np.newaxis]) - np.cos(
+    #         2 * np.pi * k[np.newaxis, :] * a[:, np.newaxis])
+    #     # eigen_cos = (np.cos(2 * np.pi * k * delta)-1)*np.sin(2 * np.pi * k * a)
+    #     # - np.cos(2 * np.pi * k * a)*np.sin(2 * np.pi * k * delta)
+    #     # eigen_sin = (np.cos(2 * np.pi * k * delta)-1)*np.cos(2 * np.pi * k * a)
+    #     # - np.sin(2 * np.pi * k * a)*np.sin(2 * np.pi * k * delta)
     # order F to put in the correct k order, eigen_cos, eigen_sin, eigen_cos, eigen_sin ...
     # example: np.arange(10).reshape((2, 5)).reshape((-1, 1), order="F")
-    eigenvalues = -b[:, np.newaxis] / (4 * np.pi * np.repeat(k, 2)[np.newaxis, :]) * \
+    # eigenvalues = -b[:, np.newaxis] / (4 * np.pi * np.repeat(k, 2)[np.newaxis, :]) * \
+    #               np.reshape([eigen_cos.T, eigen_sin.T], (-1, len(a)), order="F").T
+    eigenvalues = b[:, np.newaxis] / (np.pi * np.repeat(k, 2)[np.newaxis, :]) * \
                   np.reshape([eigen_cos.T, eigen_sin.T], (-1, len(a)), order="F").T
     eigen0 = delta * b
     return np.hstack((eigen0[:, np.newaxis], eigenvalues))
@@ -82,3 +89,12 @@ if __name__ == "__main__":
         eigen_cos = b * np.sin(2 * np.pi * a) / (2 * np.pi * k)
         print(np.allclose(np.transpose([eigen_cos, eigen_sin]), eigenvalues[:, [2 * k - 1, 2 * k]]))
         # print(np.transpose([eigen_cos, eigen_sin]) - get_k_eigenvalues(a, b, delta, k))
+
+    a, b, delta = vn_family_sampler(n=100000, a_limits=vn_family.a, b_limits=vn_family.b, delta_limits=vn_family.delta,
+                                    seed=42)
+    k_max=5
+    eigenvalues = get_k_eigenvalues(a, b, delta, k_max=k_max)
+    print(eigenvalues.mean(axis=0)*np.append(0, np.repeat(np.arange(1, k_max+1), 2)))
+    import matplotlib.pylab as plt
+    plt.hist(eigenvalues[:, 1])
+    plt.show()
