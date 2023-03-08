@@ -1,5 +1,9 @@
+from functools import partial
+
 import numpy as np
 import pandas as pd
+import seaborn as sns
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import Pipeline
@@ -13,7 +17,7 @@ from src.viz_utils import perplex_plot, generic_plot
 from src.vn_families import VnFamily, get_k_eigenvalues, vn_family_sampler, Bounds
 
 
-def learn_eigenvalues(model):
+def learn_eigenvalues(model: Pipeline):
     def decorated_function(n_train, n_test, k_max, vn_family, num_of_known_eigenvalues):
         a, b, delta = vn_family_sampler(n_test + n_train, a_limits=vn_family.a, b_limits=vn_family.b,
                                         delta_limits=vn_family.delta)
@@ -27,15 +31,17 @@ def learn_eigenvalues(model):
             "error": error
         }
 
-    decorated_function.__name__ = str(model)
+    decorated_function.__name__ = " ".join([s[0] for s in model.steps[1:]])
     return decorated_function
 
 
 if __name__ == "__main__":
-    name = "NonLinearRBA_V1V2_Test"
+    name = "NonLinearRBA_Full"
     vn_family = [
         VnFamily(a=Bounds(lower=0, upper=1)),
         VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1)),
+        VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.4, upper=0.5)),
+        VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1), delta=Bounds(lower=0.01, upper=0.5))
     ]
     # name = "NonLinearRBATest"
     # vn_family = [
@@ -58,51 +64,58 @@ if __name__ == "__main__":
         #                                learning_rate_init=1, max_iter=1000, n_iter_no_change=25)),
         # learn_eigenvalues(MLPRegressor(hidden_layer_sizes=(20, 20, ), activation="relu",
         #                                learning_rate_init=1, max_iter=1000, n_iter_no_change=25)),
-        learn_eigenvalues(LinearRegression()),
+        # learn_eigenvalues(Pipeline([("Norm", StandardScaler()), ("LR", LinearRegression())])),
         learn_eigenvalues(Pipeline([("Norm", StandardScaler()), ("LR", LinearRegression())])),
         learn_eigenvalues(Pipeline(
             [("Norm", StandardScaler()), ("Quadratic", PolynomialFeatures(degree=2)), ("LR", LinearRegression())])),
         learn_eigenvalues(Pipeline(
             [("Norm", StandardScaler()), ("Tree", DecisionTreeRegressor())])),
         learn_eigenvalues(Pipeline(
-            [("Norm", StandardScaler()), ("FNN", MLPRegressor(hidden_layer_sizes=(20, 20,), activation="logistic",
-                                                              learning_rate_init=1, max_iter=1000,
-                                                              n_iter_no_change=25))])),
+            [("Norm", StandardScaler()), ("RF", RandomForestRegressor(n_estimators=5))])),
+        # learn_eigenvalues(Pipeline(
+        # [("Norm", StandardScaler()), ("FNN", MLPRegressor(hidden_layer_sizes=(20, 20,), activation="logistic",
+        #                                                   learning_rate_init=1, max_iter=1000,
+        #                                                   n_iter_no_change=25))])),
         # learn_eigenvalues(Pipeline([("Quadratic", PolynomialFeatures(degree=2)), ("LR", LinearRegression())]))
     )
 
     lab.execute(
         datamanager=data_manager,
-        num_cores=1,
+        num_cores=3,
         forget=False,
         recalculate=False,
         n_test=[1000],
-        n_train=[1000],
-        # num_of_known_eigenvalues=[1, 2, 3, 5, 9, 21],
-        num_of_known_eigenvalues=[1, 3, 5],
+        n_train=[1000, 10000],
+        num_of_known_eigenvalues=[1, 2, 3, 5, 9],
+        # num_of_known_eigenvalues=[1, 3, 5],
         k_max=[500],
         vn_family=vn_family,
-        save_on_iteration=5
+        save_on_iteration=10
     )
 
     # import matplotlib as mpl
     # mpl.use('TkAgg')  # !IMPORTANT
-    generic_plot(
-        data_manager, x="k", y="mse", label="num_of_known_eigenvalues", log="xy",
-        plot_func=lambda ax, *args, **kwargs: ax.plot(marker=".", *args, **kwargs),
-        mse=lambda error: np.sqrt(np.mean(error ** 2, axis=0)),
-        k=lambda k_max, num_of_known_eigenvalues: np.append(0, np.repeat(np.arange(1, k_max + 1), 2))[
-                                                  num_of_known_eigenvalues * 2 - 1:],
-        # num_of_known_eigenvalues=1,
-        expeiments=str(LinearRegression()),
-        plot_by="vn_family",
-        axes_by="n_train"
-    )
+    # generic_plot(
+    #     data_manager, x="k", y="mse", label="num_of_known_eigenvalues", log="xy",
+    #     plot_func=lambda ax, *args, **kwargs: ax.plot(marker=".", *args, **kwargs),
+    #     mse=lambda error: np.sqrt(np.mean(error ** 2, axis=0)),
+    #     k=lambda k_max, num_of_known_eigenvalues: np.append(0, np.repeat(np.arange(1, k_max + 1), 2))[
+    #                                               num_of_known_eigenvalues * 2 - 1:],
+    #     # num_of_known_eigenvalues=1,
+    #     expeiments=str(LinearRegression()),
+    #     plot_by="vn_family",
+    #     axes_by="n_train"
+    # )
 
     generic_plot(
-        data_manager, x="num_of_known_eigenvalues", y="mse", label="experiments", log="xy",
-        # plot_func=lambda ax, *args, **kwargs: ax.plot(marker=".", *args, **kwargs),
-        mse=lambda error: np.sqrt(np.mean(error ** 2)),
+        data_manager, x="num_of_known_eigenvalues", y="mse", label="experiments", log="y",
+        # plot_func=lambda ax, xi, yi, *args, **kwargs: ax.plot(xi, yi, marker=".", linewidth=2, linestyle="dashed",
+        #                                                       *args, **kwargs),
+        mse=lambda error, k_max: np.mean(np.sqrt(np.mean(error ** 2, axis=0))),
+        plot_func=partial(sns.lineplot, markers="."),
+        # mse_k=lambda error, k_max, num_of_known_eigenvalues:
+        # np.sqrt(np.mean((error*np.append(1, np.repeat(np.arange(1, k_max + 1), 2))
+        # [np.newaxis, num_of_known_eigenvalues * 2 - 1:]) ** 2)),
         plot_by="vn_family",
         axes_by="n_train"
     )
