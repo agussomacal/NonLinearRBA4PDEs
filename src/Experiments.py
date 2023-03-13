@@ -63,23 +63,25 @@ def k_plot(fig, ax, error, k_max, experiments):
                                              np.sqrt(np.mean(e[:, 1::2] ** 2, axis=0)))), error))
 
     k = list(map(lambda t: np.concatenate((
-        -np.log(t[0] - np.arange((np.shape(t[1])[1] + 1) // 2)[::-1])[::-1],
-        np.log(t[0] - np.arange(np.shape(t[1])[1] // 2)[::-1]))),
+        -np.log10(t[0] - np.arange((np.shape(t[1])[1] + 1) // 2)[::-1])[::-1],
+        np.log10(t[0] - np.arange(np.shape(t[1])[1] // 2)[::-1]))),
                  zip(k_max, error)))
-    # k = list(map(lambda t: np.concatenate((
-    #     -np.log(np.arange(t[0] // 2 + 2, t[1] + 1)[::-1]),
-    #     np.log(np.arange(t[0] // 2 + 2, t[1] + 1)))), zip(num_of_known_eigenvalues, k_max, error)))
 
-    for x_i, y_i, label_i in zip(k, mse, experiments):
-        ax.plot(x_i[y_i > zero], y_i[y_i > zero], "--", alpha=0.9, label=label_i)
+    for i, (x_i, y_i, label_i) in enumerate(zip(k, mse, experiments)):
+        c = sns.color_palette("colorblind")[i]
+        # m = [".", "*", ""][i]
+        m = "."
+        ax.plot(x_i[(y_i > zero) & (x_i < 0)], y_i[(y_i > zero) & (x_i < 0)], "--", marker=m, c=c)
+        ax.plot(x_i[(y_i > zero) & (x_i > 0)], y_i[(y_i > zero) & (x_i > 0)], "--", marker=m, label=label_i, c=c)
     k = np.sort(np.unique(np.ravel(k)))
-    ax.plot(k[k < 0], 1.0 / np.exp(-k[k < 0]), ":k")
-    ax.plot(k[k > 0], 1.0 / np.exp(k[k > 0]), ":k", label=r"$k^{-1}$")
+    ax.plot(k[k < 0], 1.0 / 10**(-k[k < 0]), ":k")
+    ax.plot(k[k > 0], 1.0 / 10**(k[k > 0]), ":k", label=r"$k^{-1}$")
+    ticks = ax.get_xticks()
+    ax.set_xticks(ticks, [fr"$10^{{{abs(int(t))}}}$" for t in ticks])
     ax.legend()
     ax.set_yscale("log")
     ax.set_xlabel("Unknown k")
     ax.set_ylabel("MSE")
-
 
 if __name__ == "__main__":
     name = "NonLinearRBA"
@@ -152,11 +154,12 @@ if __name__ == "__main__":
         save_on_iteration=None
     )
 
-    for vn_family in data_manager["vn_family"]:
+    for vn_family in set(data_manager["vn_family"]):
         k_plot(
             data_manager,
             folder=str(vn_family),
             vn_family=vn_family,
+            num_of_known_eigenvalues=[2, 3, 5],
             plot_by=["vn_family", "n_train"],
             axes_by="num_of_known_eigenvalues"
         )
