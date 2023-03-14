@@ -6,6 +6,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.tree import DecisionTreeRegressor
 
+from sktorch import FNNModel
 from src import config
 from src.DataManager import DataManager, JOBLIB
 from src.LabPipeline import LabPipeline
@@ -21,7 +22,8 @@ class NullModel(BaseEstimator, RegressorMixin):
 
 
 if __name__ == "__main__":
-    name = "NonLinearCRB"
+    start = 0
+    name = f"NonLinearCRB{start}_ab_nn"
     vn_family = [
         VnFamily(a=Bounds(lower=0, upper=1)),
         VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1)),
@@ -38,12 +40,13 @@ if __name__ == "__main__":
     lab = LabPipeline()
     lab.define_new_block_of_functions(
         "experiments",
-        learn_eigenvalues(Pipeline([("Null", NullModel())])),
-        learn_eigenvalues(Pipeline([("LR", LinearRegression())])),
-        learn_eigenvalues(Pipeline([("Quadratic", PolynomialFeatures(degree=2)), ("LR", LinearRegression())])),
-        learn_eigenvalues(Pipeline([("Degree 4", PolynomialFeatures(degree=4)), ("LR", LinearRegression())])),
-        learn_eigenvalues(Pipeline([("Tree", DecisionTreeRegressor())])),
-        learn_eigenvalues(Pipeline([("RF", RandomForestRegressor(n_estimators=10))])),
+        # learn_eigenvalues(Pipeline([("Null", NullModel())])),
+        # learn_eigenvalues(Pipeline([("LR", LinearRegression())])),
+        # learn_eigenvalues(Pipeline([("Quadratic", PolynomialFeatures(degree=2)), ("LR", LinearRegression())])),
+        # learn_eigenvalues(Pipeline([("Degree 4", PolynomialFeatures(degree=4)), ("LR", LinearRegression())])),
+        # learn_eigenvalues(Pipeline([("Tree", DecisionTreeRegressor())])),
+        # learn_eigenvalues(Pipeline([("RF", RandomForestRegressor(n_estimators=10))])),
+        learn_eigenvalues(Pipeline([("NN", FNNModel(hidden_layer_sizes=(20, 20,), activation="sigmoid"))]))
     )
 
     lab.execute(
@@ -54,22 +57,27 @@ if __name__ == "__main__":
         n_test=[1000],
         n_train=[1000, 10000],
         mwhere=[
-            MWhere(start=0, m=2),
-            MWhere(start=0, m=3),
-            MWhere(start=0, m=5),
+            MWhere(start=1, m=2),
+            MWhere(start=start, m=2),
+            MWhere(start=start, m=3),
+            MWhere(start=start, m=5),
+            # MWhere(start=start, m=4),
+            # MWhere(start=start, m=10),
+            # MWhere(start=start, m=start),
         ],
         vn_family=vn_family,
         save_on_iteration=None
     )
+
     palette = sns.color_palette("colorblind")
     k_plot(
         data_manager,
         vn_family=vn_family,
         plot_by=["vn_family", "n_train"],
         m=lambda mwhere: mwhere.m,
-        mwhere=[MWhere(start=0, m=3), MWhere(start=0, m=5)],
+        mwhere=[MWhere(start=1, m=2), MWhere(start=0, m=3), MWhere(start=0, m=5)],
         axes_by="m",
         add_mwhere=False,
-        color_dict={"RF": palette[0], "Tree": palette[2], "LR": palette[4], "Null": palette[3],
-                    "Quadratic LR": palette[1], "Degree 4 LR": palette[6]},
+        color_dict={"RF": palette[0], "Tree": palette[2], "LR": palette[4], "Null": palette[5],
+                    "Quadratic LR": palette[1], "Degree 4 LR": palette[3]},
     )

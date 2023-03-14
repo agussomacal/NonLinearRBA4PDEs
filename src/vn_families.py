@@ -112,7 +112,7 @@ def learn_eigenvalues(model: Pipeline):
 
 
 @perplex_plot
-def k_plot(fig, ax, error, experiments, mwhere, add_mwhere=False, color_dict=None):
+def k_plot(fig, ax, error, experiments, mwhere, label_var="experiment", add_mwhere=False, color_dict=None):
     error, mwhere, experiments = tuple(
         zip(*[(e, m, ex) for e, m, ex in zip(error, mwhere, experiments) if
               e is not None and ex is not None]))
@@ -130,10 +130,10 @@ def k_plot(fig, ax, error, experiments, mwhere, add_mwhere=False, color_dict=Non
         else:
             c = color_dict[label_i]
         # m = [".", "*", ""][i]
-        m = "."
-        ax.scatter(k[(y_i > ZERO) & (k < 0)], y_i[(y_i > ZERO) & (k < 0)], marker=m, color=c)
-        ax.scatter(k[(y_i > ZERO) & (k > 0)], y_i[(y_i > ZERO) & (k > 0)], marker=m,
-                   label=label_i + (f": start={ms.start}, m={ms.m}" if add_mwhere else ""), color=c)
+        m = "o"
+        ax.plot(k[(y_i > ZERO) & (k < 0)], y_i[unknown_indexes][(y_i > ZERO) & (k < 0)], "--", marker=m, c=c)
+        ax.plot(k[(y_i > ZERO) & (k > 0)], y_i[unknown_indexes][(y_i > ZERO) & (k > 0)], "--", marker=m,
+                   label=label_i + (f": start={ms.start}, m={ms.m}" if add_mwhere else ""), c=c)
     k = np.sort(np.unique(np.ravel(k_full)))
     ax.plot(k[k < 0], 1.0 / 10 ** (-k[k < 0]), ":k")
     ax.plot(k[k > 0], 1.0 / 10 ** (k[k > 0]), ":k", label=r"$k^{-1}$")
@@ -141,7 +141,7 @@ def k_plot(fig, ax, error, experiments, mwhere, add_mwhere=False, color_dict=Non
     ax.set_xticks(ticks, [fr"$10^{{{abs(int(t))}}}$" for t in ticks])
     ax.legend(loc='upper right')
     ax.set_yscale("log")
-    ax.set_xlabel("Unknown k")
+    ax.set_xlabel(r"$\alpha_k$"+"\t\t\t\t   "+r"$\beta_k$")
     ax.set_ylabel("MSE")
 
 

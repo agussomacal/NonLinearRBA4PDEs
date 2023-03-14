@@ -52,7 +52,7 @@ if __name__ == "__main__":
         n_train=[10000],
         mwhere=[
             MWhere(start=0, m=5),
-            MWhere(start=50, m=10),
+            MWhere(start=50, m=50),
             MWhere(start=200, m=10),
         ],
         vn_family=vn_family,
