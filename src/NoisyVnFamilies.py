@@ -1,15 +1,10 @@
-import numpy as np
-import seaborn as sns
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import FunctionTransformer
 
 from src import config
 from src.DataManager import DataManager, JOBLIB
 from src.LabPipeline import LabPipeline
-from src.viz_utils import perplex_plot
-from src.vn_families import VnFamily, get_k_eigenvalues, vn_family_sampler, Bounds, ZERO, K_MAX, \
-    get_known_unknown_indexes, MWhere, learn_eigenvalues, k_plot
+from src.vn_families import VnFamily, Bounds, MWhere, learn_eigenvalues, k_plot
 
 if __name__ == "__main__":
     name = "NonLinearRBA_noisy_family"
@@ -51,7 +46,7 @@ if __name__ == "__main__":
     lab.execute(
         datamanager=data_manager,
         num_cores=3,
-        forget=False,
+        forget=True,
         recalculate=False,
         n_test=[1000],
         n_train=[10000],

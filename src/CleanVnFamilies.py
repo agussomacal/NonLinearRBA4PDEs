@@ -1,18 +1,14 @@
-import numpy as np
-import seaborn as sns
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import PolynomialFeatures, FunctionTransformer
+from sklearn.preprocessing import PolynomialFeatures
 from sklearn.tree import DecisionTreeRegressor
 
 from src import config
 from src.DataManager import DataManager, JOBLIB
 from src.LabPipeline import LabPipeline
-from src.viz_utils import perplex_plot
-from src.vn_families import VnFamily, Bounds, ZERO, K_MAX, \
-    get_known_unknown_indexes, learn_eigenvalues, k_plot, MWhere
+from src.vn_families import VnFamily, Bounds, learn_eigenvalues, k_plot, MWhere
 
 
 class NullModel(BaseEstimator, RegressorMixin):

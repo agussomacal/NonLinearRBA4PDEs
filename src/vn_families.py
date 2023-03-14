@@ -9,9 +9,9 @@ import matplotlib.pylab as plt
 
 from src.viz_utils import perplex_plot
 
-SMALL_SIZE = 8*2
-MEDIUM_SIZE = 10*2
-BIGGER_SIZE = 12*2
+SMALL_SIZE = 8 * 2
+MEDIUM_SIZE = 10 * 2
+BIGGER_SIZE = 12 * 2
 
 plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
 plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
@@ -69,12 +69,11 @@ def get_k_eigenvalues(a: Union[np.ndarray, float], b: Union[np.ndarray, float], 
                   np.reshape([eigen_cos.T, eigen_sin.T], (-1, len(a)), order="F").T
 
     # add regular noise
-    if c > 0:
-        eigenvalues += np.reshape(np.random.uniform(-c, c, size=(2,) + np.shape(eigen_sin)[::-1]), (-1, len(a)),
-                                  order="F").T * np.repeat(np.array(k, dtype=float), 2)[np.newaxis, :] ** s
+    noise = c * np.reshape(np.random.uniform(-1, 1, size=(2,) + np.shape(eigen_sin)[::-1]), (-1, len(a)),
+                           order="F").T * np.repeat(np.array(k, dtype=float), 2)[np.newaxis, :] ** s
 
     eigen0 = delta * b
-    return np.hstack((eigen0[:, np.newaxis], eigenvalues))
+    return np.hstack((eigen0[:, np.newaxis], eigenvalues)), np.hstack((np.zeros((np.shape(noise)[0], 1)), noise))
 
 
 def vn_family_sampler(n, a_limits: Tuple[float, float], b_limits: Tuple[float, float],
@@ -99,10 +98,10 @@ def learn_eigenvalues(model: Pipeline):
                                         delta_limits=vn_family.delta)
         # shape(n, 1+2*k_max)
         known_indexes, unknown_indexes = get_known_unknown_indexes(mwhere)
-        eigenvalues = get_k_eigenvalues(a, b, delta, K_MAX, vn_family.c, vn_family.s)
-        model.fit(eigenvalues[n_test:, known_indexes],
+        eigenvalues, noise = get_k_eigenvalues(a, b, delta, K_MAX, vn_family.c, vn_family.s)
+        model.fit((eigenvalues + noise)[n_test:, known_indexes],
                   eigenvalues[n_test:, unknown_indexes])
-        predictions = model.predict(eigenvalues[:n_test, known_indexes])
+        predictions = model.predict((eigenvalues + noise)[:n_test, known_indexes])
         error = eigenvalues[:n_test, unknown_indexes] - predictions
         return {
             "error": error
@@ -150,13 +149,13 @@ if __name__ == "__main__":
     a, b, delta = vn_family_sampler(n=3, a_limits=vn_family.a, b_limits=vn_family.b, delta_limits=vn_family.delta,
                                     seed=42)
     k_max = 10
-    eigenvalues = get_k_eigenvalues(a, b, delta, k_max)
+    eigenvalues, _ = get_k_eigenvalues(a, b, delta, k_max)
     print(eigenvalues)
     assert np.shape(eigenvalues) == (len(a), 2 * k_max + 1)
 
     a, b, delta = vn_family_sampler(n=1, a_limits=vn_family.a, b_limits=vn_family.b, delta_limits=vn_family.delta,
                                     seed=42)
-    eigenvalues = get_k_eigenvalues(a, b, delta, k_max)
+    eigenvalues, _ = get_k_eigenvalues(a, b, delta, k_max)
     print(f"a={a}, b={b}, delta={delta}")
     for k in range(1, k_max, 2):
         eigen_sin = b * np.cos(2 * np.pi * a) / (2 * np.pi * k)
@@ -167,7 +166,7 @@ if __name__ == "__main__":
     a, b, delta = vn_family_sampler(n=100000, a_limits=vn_family.a, b_limits=vn_family.b, delta_limits=vn_family.delta,
                                     seed=42)
     k_max = 5
-    eigenvalues = get_k_eigenvalues(a, b, delta, k_max=k_max)
+    eigenvalues, _ = get_k_eigenvalues(a, b, delta, k_max=k_max)
     print(eigenvalues.mean(axis=0) * np.append(0, np.repeat(np.arange(1, k_max + 1), 2)))
     import matplotlib.pylab as plt
 
@@ -176,6 +175,7 @@ if __name__ == "__main__":
 
 
     def unroll(eigenvalues):
+        eigenvalues = eigenvalues[0] + eigenvalues[1]
         return np.concatenate((eigenvalues[:, 1::2][:, ::-1], [eigenvalues[:, 0]], eigenvalues[:, 2::2]),
                               axis=1).ravel()
 
