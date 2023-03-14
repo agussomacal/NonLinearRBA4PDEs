@@ -1,3 +1,4 @@
+import seaborn as sns
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
@@ -47,25 +48,28 @@ if __name__ == "__main__":
 
     lab.execute(
         datamanager=data_manager,
-        num_cores=3,
+        num_cores=15,
         forget=False,
-        recalculate=True,
+        recalculate=False,
         n_test=[1000],
         n_train=[1000, 10000],
         mwhere=[
             MWhere(start=0, m=2),
-            # MWhere(start=0, m=3),
-            # MWhere(start=0, m=5),
+            MWhere(start=0, m=3),
+            MWhere(start=0, m=5),
         ],
         vn_family=vn_family,
         save_on_iteration=None
     )
-
+    palette = sns.color_palette("colorblind")
     k_plot(
         data_manager,
         vn_family=vn_family,
         plot_by=["vn_family", "n_train"],
         m=lambda mwhere: mwhere.m,
+        mwhere=[MWhere(start=0, m=3), MWhere(start=0, m=5)],
         axes_by="m",
-        add_mwhere=False
+        add_mwhere=False,
+        color_dict={"RF": palette[0], "Tree": palette[2], "LR": palette[4], "Null": palette[3],
+                    "Quadratic LR": palette[1], "Degree 4 LR": palette[6]},
     )

@@ -38,17 +38,17 @@ class VnFamily:
 
     def __eq__(self, other):
         return other.a == self.a and \
-               other.b == self.b and \
-               other.delta == self.delta and \
-               other.c == self.c and \
-               other.s == self.s
+            other.b == self.b and \
+            other.delta == self.delta and \
+            other.c == self.c and \
+            other.s == self.s
 
     @property
     def dim(self):
         return (self.a.lower < self.a.upper) + \
-               (self.b.lower < self.b.upper) + \
-               (self.delta.lower < self.delta.upper) + \
-               (self.c > 0) * (self.k_max)
+            (self.b.lower < self.b.upper) + \
+            (self.delta.lower < self.delta.upper) + \
+            (self.c > 0) * (self.k_max)
 
     def __repr__(self):
         vals = [f"{v}: [{getattr(self, v).lower}, {getattr(self, v).upper}]" for v in ["a", "b", "delta"]] + [
@@ -112,7 +112,7 @@ def learn_eigenvalues(model: Pipeline):
 
 
 @perplex_plot
-def k_plot(fig, ax, error, experiments, mwhere, add_mwhere=False):
+def k_plot(fig, ax, error, experiments, mwhere, add_mwhere=False, color_dict=None):
     error, mwhere, experiments = tuple(
         zip(*[(e, m, ex) for e, m, ex in zip(error, mwhere, experiments) if
               e is not None and ex is not None]))
@@ -122,10 +122,13 @@ def k_plot(fig, ax, error, experiments, mwhere, add_mwhere=False):
     k_full[k_full > 0] = np.log10(k_full[k_full > 0])
     k_full[k_full < 0] = -np.log10(-k_full[k_full < 0])
 
-    for i, (y_i, label_i, ms) in enumerate(zip(mse, experiments, mwhere)):
+    for i, (label_i, y_i, ms) in enumerate(zip(experiments, mse, mwhere)):
         _, unknown_indexes = get_known_unknown_indexes(ms)
         k = k_full[unknown_indexes]
-        c = sns.color_palette("colorblind")[i]
+        if color_dict is None:
+            c = sns.color_palette("colorblind")[i]
+        else:
+            c = color_dict[label_i]
         # m = [".", "*", ""][i]
         m = "."
         ax.scatter(k[(y_i > ZERO) & (k < 0)], y_i[(y_i > ZERO) & (k < 0)], marker=m, color=c)
@@ -136,7 +139,7 @@ def k_plot(fig, ax, error, experiments, mwhere, add_mwhere=False):
     ax.plot(k[k > 0], 1.0 / 10 ** (k[k > 0]), ":k", label=r"$k^{-1}$")
     ticks = ax.get_xticks()
     ax.set_xticks(ticks, [fr"$10^{{{abs(int(t))}}}$" for t in ticks])
-    ax.legend()
+    ax.legend(loc='upper right')
     ax.set_yscale("log")
     ax.set_xlabel("Unknown k")
     ax.set_ylabel("MSE")

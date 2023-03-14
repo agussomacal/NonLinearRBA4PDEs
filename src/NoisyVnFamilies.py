@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     lab.execute(
         datamanager=data_manager,
-        num_cores=3,
+        num_cores=15,
         forget=True,
         recalculate=False,
         n_test=[1000],
