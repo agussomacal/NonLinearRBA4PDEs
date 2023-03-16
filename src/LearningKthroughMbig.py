@@ -3,30 +3,35 @@ import seaborn as sns
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 
+from sktorch import FNNModel
 from src import config
 from src.DataManager import DataManager, JOBLIB
 from src.LabPipeline import LabPipeline
-from src.viz_utils import perplex_plot
-from src.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, K_MAX, get_known_unknown_indexes, ZERO
+from src.viz_utils import perplex_plot, correlation_plot
+from src.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, get_known_unknown_indexes
+from vn_families import get_k_values
+
+ZERO = 5e-4
 
 
 @perplex_plot
-def k_plot(fig, ax, error, experiments, mwhere, n_train, add_mwhere=False, color_dict=None):
-    error, mwhere, n_train, experiments = tuple(
-        zip(*[(e, m, n, ex) for e, m, n, ex in zip(error, mwhere, n_train, experiments) if
+def k_plot(fig, ax, error, experiments, mwhere, n_train, learn_higher_modes_only, add_mwhere=False, color_dict=None):
+    error, mwhere, n_train, experiments, learn_higher_modes_only = tuple(
+        zip(*[(e, m, n, ex, l) for e, m, n, ex, l in zip(error, mwhere, n_train, experiments, learn_higher_modes_only)
+              if
               e is not None and ex is not None])
     )
 
     mse = list(map(lambda e: np.sqrt(np.mean(np.array(e) ** 2, axis=0)).squeeze(), error))
-    k_full = np.append([0], np.repeat(np.arange(1, K_MAX + 1, dtype=float), 2) * np.array([-1, 1] * K_MAX))
+    k_full = get_k_values(negative=True)
     k_full[k_full > 0] = np.log10(k_full[k_full > 0])
     k_full[k_full < 0] = -np.log10(-k_full[k_full < 0])
 
-    for i, (label_i, y_i, ms) in enumerate(zip(n_train, mse, mwhere)):
-        known_indexes, unknown_indexes = get_known_unknown_indexes(ms)
-        change = np.where(np.diff(unknown_indexes) > 1)[0][0]
-        y_i = y_i[change:]
-        k = k_full[unknown_indexes][change:]
+    for i, (label_i, y_i, ms, hmonly) in enumerate(zip(n_train, mse, mwhere, learn_higher_modes_only)):
+        known_indexes, unknown_indexes = get_known_unknown_indexes(ms, hmonly)
+        # change = np.where(np.diff(unknown_indexes) > 1)[0][0]
+        # y_i = y_i[change:]
+        k = k_full[unknown_indexes]  # [change:]
         if color_dict is None:
             c = sns.color_palette("colorblind")[i]
         else:
@@ -49,7 +54,8 @@ def k_plot(fig, ax, error, experiments, mwhere, n_train, add_mwhere=False, color
 
 if __name__ == "__main__":
     start = 11
-    name = f"CRB{start}"
+    name = f"CRB{start}_help"
+    # name = f"CRB{start}_NN_help"
     vn_family = [
         # VnFamily(a=Bounds(lower=0, upper=1)),
         VnFamily(a=Bounds(lower=0, upper=1), b=Bounds(lower=0, upper=1)),
@@ -68,12 +74,13 @@ if __name__ == "__main__":
         "experiments",
         # learn_eigenvalues(Pipeline([("Null", NullModel())])),
         learn_eigenvalues(Pipeline([("RF", RandomForestRegressor(n_estimators=10))])),
+        # learn_eigenvalues(Pipeline([("NN", FNNModel(hidden_layer_sizes=(20, 20,), activation="sigmoid", epochs=100))]))
     )
 
     lab.execute(
         datamanager=data_manager,
         num_cores=15,
-        forget=True,
+        forget=False,
         recalculate=False,
         n_test=[1000],
         n_train=[1000, 10000, 25000],
@@ -84,14 +91,24 @@ if __name__ == "__main__":
             MWhere(start=start, m=(start - 1)),
             # MWhere(start=0, m=4 * start + 1),
         ],
+        k_decay_help=[False, True],
         vn_family=vn_family,
-        save_on_iteration=None
+        learn_higher_modes_only=[True, False],
+        save_on_iteration=None,
     )
 
     k_plot(
         data_manager,
-        plot_by=["vn_family", "experiments"],
+        plot_by=["vn_family", "experiments", "learn_higher_modes_only"],
         m=lambda mwhere: mwhere.m,
-        axes_by="m",
+        axes_by=["m", "k_decay_help"],
         add_mwhere=False,
     )
+
+    correlation_plot(data_manager, axes_var="k_decay_help", val_1=True, val_2=False,
+                     value_var="mse",
+                     mse=lambda error: np.sqrt(np.mean(np.array(error) ** 2, axis=0)),
+                     plot_by=["vn_family", "experiments", "learn_higher_modes_only"],
+                     m=lambda mwhere: mwhere.m,
+                     log="xy",
+                     axes_by=["m", "n_train"])

@@ -85,24 +85,35 @@ def vn_family_sampler(n, a_limits: Tuple[float, float], b_limits: Tuple[float, f
     return a, b, delta
 
 
-def get_known_unknown_indexes(mwhere):
+def get_known_unknown_indexes(mwhere, learn_higher_modes_only=False):
     start = max((0, mwhere.start * 2 - 1))
     known_indexes = list(range(start, start + mwhere.m))
     unknown_indexes = [i for i in range(1 + 2 * K_MAX) if i not in known_indexes]
+    if learn_higher_modes_only:
+        change = np.where(np.diff(unknown_indexes) > 1)[0][0]
+        unknown_indexes = unknown_indexes[change:]
     return known_indexes, unknown_indexes
 
 
+def get_k_values(negative=False):
+    return np.append([0], np.repeat(np.arange(1, K_MAX + 1, dtype=float), 2) * np.array([-1, 1] * K_MAX) ** negative)
+
+
 def learn_eigenvalues(model: Pipeline):
-    def decorated_function(n_train, n_test, vn_family, mwhere: MWhere):
+    def decorated_function(n_train, n_test, vn_family, mwhere: MWhere, k_decay_help, learn_higher_modes_only=True):
         a, b, delta = vn_family_sampler(n_test + n_train, a_limits=vn_family.a, b_limits=vn_family.b,
                                         delta_limits=vn_family.delta)
         # shape(n, 1+2*k_max)
-        known_indexes, unknown_indexes = get_known_unknown_indexes(mwhere)
+        known_indexes, unknown_indexes = get_known_unknown_indexes(mwhere, learn_higher_modes_only)
         eigenvalues, noise = get_k_eigenvalues(a, b, delta, K_MAX, vn_family.c, vn_family.s)
-        model.fit((eigenvalues + noise)[n_test:, known_indexes],
-                  eigenvalues[n_test:, unknown_indexes])
-        predictions = model.predict((eigenvalues + noise)[:n_test, known_indexes])
-        error = eigenvalues[:n_test, unknown_indexes] - predictions
+        k = get_k_values(negative=False)
+        k[0] += 1  # +1 to avoid the 0 division
+        k_known = k[known_indexes] ** k_decay_help
+        k_unknown = k[unknown_indexes] ** k_decay_help
+        model.fit((eigenvalues + noise)[n_test:, known_indexes] * k_known[np.newaxis, :],
+                  eigenvalues[n_test:, unknown_indexes] * k_unknown[np.newaxis, :])
+        predictions = model.predict((eigenvalues + noise)[:n_test, known_indexes] * k_known[np.newaxis, :])
+        error = eigenvalues[:n_test, unknown_indexes] - predictions / k_unknown[np.newaxis, :]
         return {
             "error": error
         }
@@ -133,7 +144,7 @@ def k_plot(fig, ax, error, experiments, mwhere, label_var="experiment", add_mwhe
         m = "o"
         ax.plot(k[(y_i > ZERO) & (k < 0)], y_i[unknown_indexes][(y_i > ZERO) & (k < 0)], "--", marker=m, c=c)
         ax.plot(k[(y_i > ZERO) & (k > 0)], y_i[unknown_indexes][(y_i > ZERO) & (k > 0)], "--", marker=m,
-                   label=label_i + (f": start={ms.start}, m={ms.m}" if add_mwhere else ""), c=c)
+                label=label_i + (f": start={ms.start}, m={ms.m}" if add_mwhere else ""), c=c)
     k = np.sort(np.unique(np.ravel(k_full)))
     ax.plot(k[k < 0], 1.0 / 10 ** (-k[k < 0]), ":k")
     ax.plot(k[k > 0], 1.0 / 10 ** (k[k > 0]), ":k", label=r"$k^{-1}$")
@@ -141,7 +152,7 @@ def k_plot(fig, ax, error, experiments, mwhere, label_var="experiment", add_mwhe
     ax.set_xticks(ticks, [fr"$10^{{{abs(int(t))}}}$" for t in ticks])
     ax.legend(loc='upper right')
     ax.set_yscale("log")
-    ax.set_xlabel(r"$\alpha_k$"+"\t\t\t\t   "+r"$\beta_k$")
+    ax.set_xlabel(r"$\alpha_k$" + "\t\t\t\t   " + r"$\beta_k$")
     ax.set_ylabel("MSE")
 
 
