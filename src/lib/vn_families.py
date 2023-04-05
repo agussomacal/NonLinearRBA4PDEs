@@ -9,16 +9,16 @@ import matplotlib.pylab as plt
 
 from src.viz_utils import perplex_plot
 
-SMALL_SIZE = 8 * 2
-MEDIUM_SIZE = 10 * 2
-BIGGER_SIZE = 12 * 2
+SMALL_SIZE = 8 * 3
+MEDIUM_SIZE = 10 * 3
+BIGGER_SIZE = 12 * 3
 
 plt.rc('font', size=SMALL_SIZE)  # controls default text sizes
 plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
 plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
 plt.rc('xtick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
-plt.rc('legend', fontsize=SMALL_SIZE)  # legend fontsize
+plt.rc('legend', fontsize=SMALL_SIZE*2/3)  # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 K_MAX = 500
@@ -90,8 +90,9 @@ def get_known_unknown_indexes(mwhere, learn_higher_modes_only=False):
     known_indexes = list(range(start, start + mwhere.m))
     unknown_indexes = [i for i in range(1 + 2 * K_MAX) if i not in known_indexes]
     if learn_higher_modes_only:
-        change = np.where(np.diff(unknown_indexes) > 1)[0][0]
-        unknown_indexes = unknown_indexes[change:]
+        change = np.where(np.diff(unknown_indexes) > 1)[0]
+        change = change[0] if len(change) > 0 else -1
+        unknown_indexes = unknown_indexes[change + 1:]
     return known_indexes, unknown_indexes
 
 
@@ -123,9 +124,11 @@ def learn_eigenvalues(model: Pipeline):
 
 
 @perplex_plot
-def k_plot(fig, ax, error, experiments, mwhere, label_var="experiment", add_mwhere=False, color_dict=None):
-    error, mwhere, experiments = tuple(
-        zip(*[(e, m, ex) for e, m, ex in zip(error, mwhere, experiments) if
+def k_plot(fig, ax, error, experiments, mwhere, learn_higher_modes_only, n_train, label_var="experiments",
+           add_mwhere=False, color_dict=None):
+    n_train, error, mwhere, experiments, learn_higher_modes_only = tuple(
+        zip(*[(nt, e, m, ex, lhmo) for nt, e, m, ex, lhmo in
+              zip(n_train, error, mwhere, experiments, learn_higher_modes_only) if
               e is not None and ex is not None]))
 
     mse = list(map(lambda e: np.sqrt(np.mean(np.array(e) ** 2, axis=0)).squeeze(), error))
@@ -133,18 +136,25 @@ def k_plot(fig, ax, error, experiments, mwhere, label_var="experiment", add_mwhe
     k_full[k_full > 0] = np.log10(k_full[k_full > 0])
     k_full[k_full < 0] = -np.log10(-k_full[k_full < 0])
 
-    for i, (label_i, y_i, ms) in enumerate(zip(experiments, mse, mwhere)):
-        _, unknown_indexes = get_known_unknown_indexes(ms)
+    for i, (exp_i, y_i, ms, lhmo, ntr) in enumerate(zip(experiments, mse, mwhere, learn_higher_modes_only, n_train)):
+        _, unknown_indexes = get_known_unknown_indexes(ms, lhmo)
         k = k_full[unknown_indexes]
-        if color_dict is None:
-            c = sns.color_palette("colorblind")[i]
+        # TODO: do it without an if
+        if label_var == "experiments":
+            label_i = exp_i
+        elif label_var == "n_train":
+            label_i = ntr
         else:
+            raise Exception(f"label_var {label_var} not implemented.")
+
+        if isinstance(color_dict, dict) and label_i in color_dict.keys():
             c = color_dict[label_i]
-        # m = [".", "*", ""][i]
+        else:
+            c = sns.color_palette("colorblind")[i]
         m = "o"
-        ax.plot(k[(y_i > ZERO) & (k < 0)], y_i[unknown_indexes][(y_i > ZERO) & (k < 0)], "--", marker=m, c=c)
-        ax.plot(k[(y_i > ZERO) & (k > 0)], y_i[unknown_indexes][(y_i > ZERO) & (k > 0)], "--", marker=m,
-                label=label_i + (f": start={ms.start}, m={ms.m}" if add_mwhere else ""), c=c)
+        ax.plot(k[(y_i > ZERO) & (k < 0)], y_i[(y_i > ZERO) & (k < 0)], "--", marker=m, c=c)
+        ax.plot(k[(y_i > ZERO) & (k > 0)], y_i[(y_i > ZERO) & (k > 0)], "--", marker=m,
+                label=f"{label_i}{f': start={ms.start}, m={ms.m}' if add_mwhere else ''}", c=c)
     k = np.sort(np.unique(np.ravel(k_full)))
     ax.plot(k[k < 0], 1.0 / 10 ** (-k[k < 0]), ":k")
     ax.plot(k[k > 0], 1.0 / 10 ** (k[k > 0]), ":k", label=r"$k^{-1}$")

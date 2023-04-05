@@ -10,3 +10,4 @@ pathos
 tqdm
 pandas
 makefun
+eco2ai

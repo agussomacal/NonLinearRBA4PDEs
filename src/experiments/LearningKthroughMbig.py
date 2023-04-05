@@ -3,13 +3,12 @@ import seaborn as sns
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 
-from sktorch import FNNModel
 from src import config
 from src.DataManager import DataManager, JOBLIB
 from src.LabPipeline import LabPipeline
 from src.viz_utils import perplex_plot, correlation_plot
-from src.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, get_known_unknown_indexes
-from vn_families import get_k_values
+from lib.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, get_known_unknown_indexes
+from lib.vn_families import get_k_values
 
 ZERO = 5e-4
 
