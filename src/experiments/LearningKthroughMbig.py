@@ -7,16 +7,20 @@ from src import config
 from PerplexityLab.DataManager import DataManager, JOBLIB
 from PerplexityLab.LabPipeline import LabPipeline
 from PerplexityLab.visualization import perplex_plot, correlation_plot
-from lib.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, get_known_unknown_indexes
+from lib.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, get_known_unknown_indexes, get_k_eigenvalues, \
+    vn_family_sampler, K_MAX
 from lib.vn_families import get_k_values
 
 ZERO = 5e-4
 
 
 @perplex_plot
-def k_plot(fig, ax, error, experiments, mwhere, n_train, learn_higher_modes_only, add_mwhere=False, color_dict=None):
-    error, mwhere, n_train, experiments, learn_higher_modes_only = tuple(
-        zip(*[(e, m, n, ex, l) for e, m, n, ex, l in zip(error, mwhere, n_train, experiments, learn_higher_modes_only)
+def k_plot(fig, ax, error, experiments, mwhere, n_train, learn_higher_modes_only, vn_family, add_mwhere=False,
+           color_dict=None):
+    error, mwhere, n_train, experiments, learn_higher_modes_only, vn_family = tuple(
+        zip(*[(e, m, n, ex, l, vn) for e, m, n, ex, l, vn in
+              zip(error, mwhere, n_train, experiments, learn_higher_modes_only,
+                  vn_family)
               if
               e is not None and ex is not None])
     )
@@ -40,9 +44,16 @@ def k_plot(fig, ax, error, experiments, mwhere, n_train, learn_higher_modes_only
         ax.plot(k[(y_i > ZERO) & (k < 0)], y_i[(y_i > ZERO) & (k < 0)], "--", marker=m, c=c)
         ax.plot(k[(y_i > ZERO) & (k > 0)], y_i[(y_i > ZERO) & (k > 0)], "--", marker=m,
                 label=str(label_i) + (f": start={ms.start}, m={ms.m}" if add_mwhere else ""), c=c)
-    k = np.sort(np.unique(np.ravel(k_full)))
-    ax.plot(k[k < 0], 1.0 / 10 ** (-k[k < 0]), ":k")
-    ax.plot(k[k > 0], 1.0 / 10 ** (k[k > 0]), ":k", label=r"$k^{-1}$")
+
+    vn_family = vn_family[0]
+    a, b, delta = vn_family_sampler(n=1000, a_limits=vn_family.a, b_limits=vn_family.b,
+                                    delta_limits=vn_family.delta)
+    eigenvalues, _ = get_k_eigenvalues(a, b, delta, K_MAX, vn_family.c, vn_family.s)
+    eigenvalues_sd = eigenvalues.std(axis=0)
+    ax.plot(k_full[(k_full < 0) & (eigenvalues_sd > ZERO)], eigenvalues_sd[(k_full < 0) & (eigenvalues_sd > ZERO)],
+            ":k")
+    ax.plot(k_full[(k_full > 0) & (eigenvalues_sd > ZERO)], eigenvalues_sd[(k_full > 0) & (eigenvalues_sd > ZERO)],
+            ":k", label=r"$null model$")
     ticks = ax.get_xticks()
     ax.set_xticks(ticks, [fr"$10^{{{abs(int(t))}}}$" for t in ticks])
     ax.legend(loc='upper right')

@@ -1,13 +1,7 @@
 import numpy as np
-import seaborn as sns
 import torch
 from sklearn.base import BaseEstimator, TransformerMixin
 from tqdm import tqdm
-
-# -
-
-df = sns.load_dataset("tips")
-df.head()
 
 
 def get_activation_function(activation_name):
@@ -31,7 +25,7 @@ class FNNModel(torch.nn.Module, BaseEstimator, TransformerMixin):
     def __init__(self, hidden_layer_sizes, epochs=1000, activation='sigmoid', validation_size=0.2,
                  solver=torch.optim.Adam, lr=0.01,
                  lr_lower_limit=1e-12, lr_upper_limit=1, n_epochs_without_improvement=100, random_state=42, dropout_p=0,
-                 batch_normalization=False, save_stats=False, loss_func=torch.nn.MSELoss()):
+                 batch_normalization=False, save_stats=False, loss_func=torch.nn.MSELoss(), no_improvement=50):
         super(FNNModel, self).__init__()
         self.loss_func = loss_func
         self.lr = lr
@@ -44,6 +38,8 @@ class FNNModel(torch.nn.Module, BaseEstimator, TransformerMixin):
         self.input_shape = None
         self.output_shape = None
         self.model = None
+
+        self.no_improvement = no_improvement
 
     def architecture(self):
         func, gain = get_activation_function(self.activation)
@@ -87,38 +83,27 @@ class FNNModel(torch.nn.Module, BaseEstimator, TransformerMixin):
 
         self.optimizer = self.solver(self.parameters(), lr=self.lr)
         self.train()
+        minloss = np.inf
+        ix = 0
         for epoch in tqdm(range(0, self.epochs)):
             pred_y = self.forward(X)
 
             # Compute and print loss
             loss = self.loss_func(pred_y, y)
+            if minloss > loss:
+                minloss = loss
+                ix = epoch
+            elif (epoch - ix) > self.no_improvement:  # early stopping by no improvement.
+                print(f"\rEarly stopping in epoch {epoch} by no improvement.")
+                break
 
             # Zero gradients, perform a backward pass,
             # and update the weights.
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            print('epoch {}, loss {}'.format(epoch, loss.item()))
+            print('\repoch {}, loss {}'.format(epoch, loss.item()))
         self.eval()
 
     def predict(self, X):
         return self.forward(torch.from_numpy(X.astype(np.float32))).detach().numpy()
-
-
-# class FNNOverKModel(FNNModel):
-#
-#     def __init__(self, hidden_layer_sizes, freq=-1, epochs=1000, activation='sigmoid', validation_size=0.2,
-#                  solver=torch.optim.Adam, lr=0.01,
-#                  lr_lower_limit=1e-12, lr_upper_limit=1, n_epochs_without_improvement=100, random_state=42, dropout_p=0,
-#                  batch_normalization=False, save_stats=False, loss_func=torch.nn.MSELoss()):
-#         super(FNNOverKModel, self).__init__(
-#             hidden_layer_sizes=hidden_layer_sizes, epochs=epochs, activation=activation,
-#             validation_size=validation_size, solver=solver, lr=lr, lr_lower_limit=lr_lower_limit,
-#             lr_upper_limit=lr_upper_limit, n_epochs_without_improvement=n_epochs_without_improvement,
-#             random_state=random_state, dropout_p=dropout_p, batch_normalization=batch_normalization,
-#             save_stats=save_stats, loss_func=loss_func)
-#         self.power = power
-#
-#     def architecture(self):
-#         model = super(FNNOverKModel, self).architecture()
-#         self.output_shape
