@@ -10,8 +10,8 @@ from sklearn.tree import DecisionTreeRegressor
 from config import paper_path
 from lib.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, k_plot
 from src import config
-from src.DataManager import DataManager, JOBLIB
-from src.LabPipeline import LabPipeline
+from PerplexityLab.DataManager import DataManager, JOBLIB
+from PerplexityLab.LabPipeline import LabPipeline
 
 
 class NullModel(BaseEstimator, RegressorMixin):

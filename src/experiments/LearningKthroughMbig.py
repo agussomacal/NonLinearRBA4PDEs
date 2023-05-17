@@ -4,9 +4,9 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 
 from src import config
-from src.DataManager import DataManager, JOBLIB
-from src.LabPipeline import LabPipeline
-from src.viz_utils import perplex_plot, correlation_plot
+from PerplexityLab.DataManager import DataManager, JOBLIB
+from PerplexityLab.LabPipeline import LabPipeline
+from PerplexityLab.visualization import perplex_plot, correlation_plot
 from lib.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere, get_known_unknown_indexes
 from lib.vn_families import get_k_values
 

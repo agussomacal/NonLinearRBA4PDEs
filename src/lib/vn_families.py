@@ -7,7 +7,7 @@ from sklearn.pipeline import Pipeline
 import seaborn as sns
 import matplotlib.pylab as plt
 
-from src.viz_utils import perplex_plot
+from PerplexityLab.visualization import perplex_plot
 
 SMALL_SIZE = 8 * 3
 MEDIUM_SIZE = 10 * 3

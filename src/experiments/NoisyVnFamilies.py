@@ -3,8 +3,8 @@ from sklearn.pipeline import Pipeline
 
 from config import paper_path
 from src import config
-from src.DataManager import DataManager, JOBLIB
-from src.LabPipeline import LabPipeline
+from PerplexityLab.DataManager import DataManager, JOBLIB
+from PerplexityLab.LabPipeline import LabPipeline
 from lib.vn_families import VnFamily, Bounds, MWhere, learn_eigenvalues, k_plot
 
 if __name__ == "__main__":
@@ -49,7 +49,7 @@ if __name__ == "__main__":
     lab.execute(
         datamanager=data_manager,
         num_cores=15,
-        forget=True,
+        forget=False,
         recalculate=False,
         save_on_iteration=None,
         n_test=[1000],
