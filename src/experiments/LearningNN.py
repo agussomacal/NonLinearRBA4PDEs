@@ -1,5 +1,7 @@
 import numpy as np
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from PerplexityLab.DataManager import DataManager, JOBLIB
 from PerplexityLab.LabPipeline import LabPipeline
@@ -27,9 +29,10 @@ if __name__ == "__main__":
     lab = LabPipeline()
     lab.define_new_block_of_functions(
         "experiments",
-        # learn_eigenvalues(Pipeline([("Null", NullModel())])),
-        # learn_eigenvalues(Pipeline([("RF", RandomForestRegressor(n_estimators=10))])),
-        learn_eigenvalues(Pipeline([("NN", FNNModel(hidden_layer_sizes=(20, 20,), activation="sigmoid", epochs=1000))]))
+        learn_eigenvalues(Pipeline([("RF", RandomForestRegressor(n_estimators=10))])),
+        learn_eigenvalues(Pipeline([("Zscore", StandardScaler()), ("RF", RandomForestRegressor(n_estimators=10))])),
+        learn_eigenvalues(Pipeline([("Zscore", StandardScaler()),
+                                    ("NN", FNNModel(hidden_layer_sizes=(20, 20,), activation="sigmoid", epochs=1000))]))
     )
 
     lab.execute(
@@ -38,7 +41,7 @@ if __name__ == "__main__":
         forget=False,
         recalculate=False,
         n_test=[1000],
-        n_train=[1000, 10000, 25000],
+        n_train=[1000, 10000],  # 25000
         mwhere=[
             MWhere(start=0, m=5),
             MWhere(start=0, m=11),
@@ -46,7 +49,7 @@ if __name__ == "__main__":
         k_decay_help=[False, True],
         vn_family=vn_family,
         learn_higher_modes_only=[True],
-        save_on_iteration=None,
+        save_on_iteration=-1,
     )
 
     k_plot(
@@ -57,10 +60,10 @@ if __name__ == "__main__":
         add_mwhere=False,
     )
 
-    correlation_plot(data_manager, axes_var="k_decay_help", val_1=True, val_2=False,
-                     value_var="mse",
-                     mse=lambda error: np.sqrt(np.mean(np.array(error) ** 2, axis=0)),
-                     plot_by=["vn_family", "experiments", "learn_higher_modes_only"],
-                     m=lambda mwhere: mwhere.m,
-                     log="xy",
-                     axes_by=["m", "n_train"])
+    # correlation_plot(data_manager, axes_var="k_decay_help", val_1=True, val_2=False,
+    #                  value_var="mse",
+    #                  mse=lambda error: np.sqrt(np.mean(np.array(error) ** 2, axis=0)),
+    #                  plot_by=["vn_family", "experiments", "learn_higher_modes_only"],
+    #                  m=lambda mwhere: mwhere.m,
+    #                  log="xy",
+    #                  axes_by=["m", "n_train"])
