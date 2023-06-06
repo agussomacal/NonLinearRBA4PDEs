@@ -52,7 +52,7 @@ class VnFamily:
 
     def __repr__(self):
         vals = [f"{v}: [{getattr(self, v).lower}, {getattr(self, v).upper}]" for v in ["a", "b", "delta"]] + [
-            f"c: {self.c}; k max: {self.k_max}"]
+            f"c: {self.c}; s: {self.s}; k max: {self.k_max}"]
         return "; ".join(vals[:self.dim])
 
 

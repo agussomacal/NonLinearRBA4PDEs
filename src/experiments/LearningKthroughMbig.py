@@ -14,12 +14,12 @@ from lib.vn_families import get_k_values
 ZERO = 5e-4
 
 
-@perplex_plot
-def k_plot(fig, ax, error, experiments, mwhere, n_train, learn_higher_modes_only, vn_family, add_mwhere=False,
+@perplex_plot()
+def k_plot(fig, ax, error, model, mwhere, n_train, learn_higher_modes_only, vn_family, add_mwhere=False,
            color_dict=None):
-    error, mwhere, n_train, experiments, learn_higher_modes_only, vn_family = tuple(
+    error, mwhere, n_train, model, learn_higher_modes_only, vn_family = tuple(
         zip(*[(e, m, n, ex, l, vn) for e, m, n, ex, l, vn in
-              zip(error, mwhere, n_train, experiments, learn_higher_modes_only,
+              zip(error, mwhere, n_train, model, learn_higher_modes_only,
                   vn_family)
               if
               e is not None and ex is not None])
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     # data_manager.load()
     lab = LabPipeline()
     lab.define_new_block_of_functions(
-        "experiments",
+        "model",
         # learn_eigenvalues(Pipeline([("Null", NullModel())])),
         learn_eigenvalues(Pipeline([("RF", RandomForestRegressor(n_estimators=10))])),
         # learn_eigenvalues(Pipeline([("NN", FNNModel(hidden_layer_sizes=(20, 20,), activation="sigmoid", epochs=100))]))
@@ -109,7 +109,7 @@ if __name__ == "__main__":
 
     k_plot(
         data_manager,
-        plot_by=["vn_family", "experiments", "learn_higher_modes_only"],
+        plot_by=["vn_family", "model", "learn_higher_modes_only"],
         m=lambda mwhere: mwhere.m,
         axes_by=["m", "k_decay_help"],
         add_mwhere=False,
@@ -118,7 +118,7 @@ if __name__ == "__main__":
     correlation_plot(data_manager, axes_var="k_decay_help", val_1=True, val_2=False,
                      value_var="mse",
                      mse=lambda error: np.sqrt(np.mean(np.array(error) ** 2, axis=0)),
-                     plot_by=["vn_family", "experiments", "learn_higher_modes_only"],
+                     plot_by=["vn_family", "model", "learn_higher_modes_only"],
                      m=lambda mwhere: mwhere.m,
                      log="xy",
                      axes_by=["m", "n_train"])
