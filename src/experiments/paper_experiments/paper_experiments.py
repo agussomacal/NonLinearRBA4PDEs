@@ -23,7 +23,7 @@ class NullModel(BaseEstimator, RegressorMixin):
 
 
 if __name__ == "__main__":
-    name = f"NonLinearCRB"
+    name = f"NonLinearCRB2"
     data_manager = DataManager(
         path=config.results_path,
         name=name,
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     ]
     mwhere = [MWhere(start=1, m=2), MWhere(start=0, m=3), MWhere(start=0, m=5)]
     models = [
-        Pipeline([("Null", NullModel())]),
+        # Pipeline([("Null", NullModel())]),
         Pipeline([("LR", LinearRegression())]),
         Pipeline([("Quadratic", PolynomialFeatures(degree=2)), ("LR", LinearRegression())]),
         Pipeline([("Degree 4", PolynomialFeatures(degree=4)), ("LR", LinearRegression())]),
@@ -54,7 +54,7 @@ if __name__ == "__main__":
     # Experiment
     lab = LabPipeline()
     lab.define_new_block_of_functions(
-        "experiments",
+        "model",
         *list(map(learn_eigenvalues, models)),
     )
     lab.execute(
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     palette = sns.color_palette("colorblind")
     k_plot(
         data_manager,
-        folder=paper_path,
+        # folder=paper_path,
         vn_family=vn_family,
         plot_by=["vn_family", "n_train", "m"],
         m=lambda mwhere: mwhere.m,

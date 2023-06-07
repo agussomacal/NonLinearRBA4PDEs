@@ -1,11 +1,9 @@
-import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from PerplexityLab.DataManager import DataManager, JOBLIB
 from PerplexityLab.LabPipeline import LabPipeline
-from PerplexityLab.visualization import correlation_plot
 from experiments.LearningKthroughMbig import k_plot
 from lib.sktorch import FNNModel
 from lib.vn_families import VnFamily, Bounds, learn_eigenvalues, MWhere

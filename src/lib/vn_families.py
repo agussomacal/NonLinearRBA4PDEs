@@ -7,7 +7,7 @@ from sklearn.pipeline import Pipeline
 import seaborn as sns
 import matplotlib.pylab as plt
 
-from PerplexityLab.visualization import perplex_plot
+from PerplexityLab.visualization import perplex_plot, one_line_iterator
 
 SMALL_SIZE = 8 * 3
 MEDIUM_SIZE = 10 * 3
@@ -18,7 +18,7 @@ plt.rc('axes', titlesize=SMALL_SIZE)  # fontsize of the axes title
 plt.rc('axes', labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
 plt.rc('xtick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
 plt.rc('ytick', labelsize=SMALL_SIZE)  # fontsize of the tick labels
-plt.rc('legend', fontsize=SMALL_SIZE*2/3)  # legend fontsize
+plt.rc('legend', fontsize=SMALL_SIZE * 2 / 3)  # legend fontsize
 plt.rc('figure', titlesize=BIGGER_SIZE)  # fontsize of the figure title
 
 K_MAX = 500
@@ -27,6 +27,9 @@ Bounds = namedtuple("Bounds", "lower upper")
 MWhere = namedtuple("MWhere", "m start")
 
 
+# ========= ========== =========== ========== #
+#                   Families                  #
+# ========= ========== =========== ========== #
 @dataclass(unsafe_hash=True)
 class VnFamily:
     a: Tuple[float, float] = Bounds(lower=0, upper=1)
@@ -38,17 +41,17 @@ class VnFamily:
 
     def __eq__(self, other):
         return other.a == self.a and \
-            other.b == self.b and \
-            other.delta == self.delta and \
-            other.c == self.c and \
-            other.s == self.s
+               other.b == self.b and \
+               other.delta == self.delta and \
+               other.c == self.c and \
+               other.s == self.s
 
     @property
     def dim(self):
         return (self.a.lower < self.a.upper) + \
-            (self.b.lower < self.b.upper) + \
-            (self.delta.lower < self.delta.upper) + \
-            (self.c > 0) * (self.k_max)
+               (self.b.lower < self.b.upper) + \
+               (self.delta.lower < self.delta.upper) + \
+               (self.c > 0) * (self.k_max)
 
     def __repr__(self):
         vals = [f"{v}: [{getattr(self, v).lower}, {getattr(self, v).upper}]" for v in ["a", "b", "delta"]] + [
@@ -60,12 +63,19 @@ def get_k_eigenvalues(a: Union[np.ndarray, float], b: Union[np.ndarray, float], 
                       k_max: int, c: float = 0, s: float = -1):
     k = np.arange(1, k_max + 1)
     # pure sin cos
-    eigen_cos = np.sin(np.pi * k[np.newaxis, :] * delta[:, np.newaxis]) * np.cos(
-        np.pi * k[np.newaxis, :] * (2 * a + delta)[:, np.newaxis])
-    eigen_sin = -np.sin(np.pi * k[np.newaxis, :] * delta[:, np.newaxis]) * np.sin(
-        np.pi * k[np.newaxis, :] * (2 * a + delta)[:, np.newaxis])
+    # eigen_cos = np.sin(np.pi * k[np.newaxis, :] * delta[:, np.newaxis]) * np.cos(
+    #     np.pi * k[np.newaxis, :] * (2 * a + delta)[:, np.newaxis])
+    # eigen_sin = -np.sin(np.pi * k[np.newaxis, :] * delta[:, np.newaxis]) * np.sin(
+    #     np.pi * k[np.newaxis, :] * (2 * a + delta)[:, np.newaxis])
 
-    eigenvalues = b[:, np.newaxis] / (np.pi * np.repeat(k, 2)[np.newaxis, :]) * \
+    # eigenvalues = 2 * b[:, np.newaxis] / (np.pi * np.repeat(k, 2)[np.newaxis, :]) * \
+    #               np.reshape([eigen_cos.T, eigen_sin.T], (-1, len(a)), order="F").T
+
+    twopik = 2 * np.pi * k[np.newaxis, :]
+    eigen_sin = -(np.cos(twopik * (a + delta)[:, np.newaxis]) - np.cos(twopik * a[:, np.newaxis]))
+    eigen_cos = np.sin(twopik * (a + delta)[:, np.newaxis]) - np.sin(twopik * a[:, np.newaxis])
+
+    eigenvalues = 2 * b[:, np.newaxis] / (2 * np.pi * np.repeat(k, 2)[np.newaxis, :]) * \
                   np.reshape([eigen_cos.T, eigen_sin.T], (-1, len(a)), order="F").T
 
     # add regular noise
@@ -123,47 +133,96 @@ def learn_eigenvalues(model: Pipeline):
     return decorated_function
 
 
-@perplex_plot
-def k_plot(fig, ax, error, experiments, mwhere, learn_higher_modes_only, n_train, label_var="experiments",
-           add_mwhere=False, color_dict=None):
-    n_train, error, mwhere, experiments, learn_higher_modes_only = tuple(
-        zip(*[(nt, e, m, ex, lhmo) for nt, e, m, ex, lhmo in
-              zip(n_train, error, mwhere, experiments, learn_higher_modes_only) if
-              e is not None and ex is not None]))
+# ========= ========== =========== ========== #
+#                   Plots                     #
+# ========= ========== =========== ========== #
+@perplex_plot()
+def k_plot(fig, ax, error, model, mwhere, n_train, learn_higher_modes_only, vn_family, add_mwhere=False,
+           color_dict=None, label_var="model"):
+    error, mwhere, n_train, model, learn_higher_modes_only, vn_family = tuple(
+        zip(*[(e, m, n, ex, l, vn) for e, m, n, ex, l, vn in
+              zip(error, mwhere, n_train, model, learn_higher_modes_only,
+                  vn_family)
+              if
+              e is not None and ex is not None])
+    )
 
     mse = list(map(lambda e: np.sqrt(np.mean(np.array(e) ** 2, axis=0)).squeeze(), error))
-    k_full = np.append([0], np.repeat(np.arange(1, K_MAX + 1, dtype=float), 2) * np.array([-1, 1] * K_MAX))
+    k_full = get_k_values(negative=True)
     k_full[k_full > 0] = np.log10(k_full[k_full > 0])
     k_full[k_full < 0] = -np.log10(-k_full[k_full < 0])
 
-    for i, (exp_i, y_i, ms, lhmo, ntr) in enumerate(zip(experiments, mse, mwhere, learn_higher_modes_only, n_train)):
-        _, unknown_indexes = get_known_unknown_indexes(ms, lhmo)
-        k = k_full[unknown_indexes]
+    # for i, (exp_i, y_i, ms, lhmo, ntr) in enumerate(zip(model, mse, mwhere, learn_higher_modes_only, n_train)):
+    for i, (ntr, y_i, ms, hmonly, mod) in enumerate(zip(n_train, mse, mwhere, learn_higher_modes_only, model)):
+        known_indexes, unknown_indexes = get_known_unknown_indexes(ms, hmonly)
+        # change = np.where(np.diff(unknown_indexes) > 1)[0][0]
+        # y_i = y_i[change:]
+        k = k_full[unknown_indexes]  # [change:]
         # TODO: do it without an if
-        if label_var == "experiments":
-            label_i = exp_i
+        if label_var == "model":
+            label_i = mod
         elif label_var == "n_train":
             label_i = ntr
         else:
             raise Exception(f"label_var {label_var} not implemented.")
 
-        if isinstance(color_dict, dict) and label_i in color_dict.keys():
-            c = color_dict[label_i]
-        else:
+        if color_dict is None:
             c = sns.color_palette("colorblind")[i]
+        else:
+            c = color_dict[label_i]
+        # m = [".", "*", ""][i]
         m = "o"
         ax.plot(k[(y_i > ZERO) & (k < 0)], y_i[(y_i > ZERO) & (k < 0)], "--", marker=m, c=c)
         ax.plot(k[(y_i > ZERO) & (k > 0)], y_i[(y_i > ZERO) & (k > 0)], "--", marker=m,
-                label=f"{label_i}{f': start={ms.start}, m={ms.m}' if add_mwhere else ''}", c=c)
-    k = np.sort(np.unique(np.ravel(k_full)))
-    ax.plot(k[k < 0], 1.0 / 10 ** (-k[k < 0]), ":k")
-    ax.plot(k[k > 0], 1.0 / 10 ** (k[k > 0]), ":k", label=r"$k^{-1}$")
+                label=str(label_i) + (f": start={ms.start}, m={ms.m}" if add_mwhere else ""), c=c)
+
+    vn_family = vn_family[0]
+    a, b, delta = vn_family_sampler(n=1000, a_limits=vn_family.a, b_limits=vn_family.b,
+                                    delta_limits=vn_family.delta)
+    eigenvalues, _ = get_k_eigenvalues(a, b, delta, K_MAX, vn_family.c, vn_family.s)
+    eigenvalues_sd = eigenvalues.std(axis=0)
+    ax.plot(k_full[(k_full < 0) & (eigenvalues_sd > ZERO)], eigenvalues_sd[(k_full < 0) & (eigenvalues_sd > ZERO)],
+            ":k")
+    ax.plot(k_full[(k_full > 0) & (eigenvalues_sd > ZERO)], eigenvalues_sd[(k_full > 0) & (eigenvalues_sd > ZERO)],
+            ":k", label=r"$null model$")
     ticks = ax.get_xticks()
     ax.set_xticks(ticks, [fr"$10^{{{abs(int(t))}}}$" for t in ticks])
     ax.legend(loc='upper right')
     ax.set_yscale("log")
     ax.set_xlabel(r"$\alpha_k$" + "\t\t\t\t   " + r"$\beta_k$")
     ax.set_ylabel("MSE")
+
+
+@perplex_plot(plot_by_default=["vn_family"], axes_by_default=["mwhere", "learn_higher_modes_only"])
+@one_line_iterator
+def plot_reconstruction(fig, ax, error, n_train, n_test, vn_family, model, mwhere: MWhere, k_decay_help,
+                        learn_higher_modes_only, i=1, num_points=K_MAX * 10):
+    a, b, delta = vn_family_sampler(n_test + n_train, a_limits=vn_family.a, b_limits=vn_family.b,
+                                    delta_limits=vn_family.delta)
+    eigenvalues, noise = get_k_eigenvalues(a, b, delta, K_MAX, vn_family.c, vn_family.s)
+    known_indexes, unknown_indexes = get_known_unknown_indexes(mwhere, learn_higher_modes_only)
+
+    # k*x creates a matrix #k x #x but at the end we obtain #x x #k
+    k = np.arange(1, K_MAX + 1)[:, np.newaxis]
+    x = np.linspace(0, 1, num_points)[np.newaxis, :]
+    eigenvectors = np.reshape([np.cos(2 * np.pi * k * x), np.sin(2 * np.pi * k * x)], (-1, num_points), order="F").T
+    eigenvectors = np.hstack((np.ones((num_points, 1)), eigenvectors))
+
+    # plot ground truth
+    x = np.ravel(x)
+    ground_truth = 0 + \
+                   (delta[i] > (x - a[i])) * ((x - a[i]) > 0) * b[i] + \
+                   (delta[i] > (1 + x - a[i])) * ((1 + x - a[i]) > 0) * b[i]
+    # ground_truth = x * 0 + (((x - a[i]) % 1) > 0) * (((x - a[i] - delta[i]) % 1) < 0) * b[i]
+    ax.plot(x, ground_truth, label=f"Ground truth")
+    ax.plot(x, eigenvectors @ eigenvalues[:n_test][i, :], label=f"Ground truth threshold")
+    # eigenvalues[:n_test][i, :]
+    ax.plot(x, ground_truth + eigenvectors @ noise[i, :], label=f"Ground truth + regular")
+    # plot approximation
+    eigenvalues[:n_test][i, unknown_indexes] -= error[i, :]
+    eigenvalues[:n_test][i, known_indexes] += noise[i, known_indexes]
+    reconstruction = eigenvectors @ eigenvalues[:n_test][i, :]
+    ax.plot(x, reconstruction, label=f"{model}: reconstruction of ground truth: ")
 
 
 if __name__ == "__main__":
