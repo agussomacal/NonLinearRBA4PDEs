@@ -29,6 +29,7 @@ class FNNModel(torch.nn.Module, BaseEstimator, TransformerMixin):
         super(FNNModel, self).__init__()
         self.loss_func = loss_func
         self.lr = lr
+        self.validation_size = validation_size
         self.solver = solver
         self.activation = activation
         self.hidden_layer_sizes = hidden_layer_sizes
@@ -40,6 +41,7 @@ class FNNModel(torch.nn.Module, BaseEstimator, TransformerMixin):
         self.model = None
 
         self.no_improvement = no_improvement
+        self.losses = {"train": [], "valid": []}
 
     def architecture(self):
         func, gain = get_activation_function(self.activation)
@@ -71,7 +73,7 @@ class FNNModel(torch.nn.Module, BaseEstimator, TransformerMixin):
         return torch.nn.Sequential(*sequence)
 
     def forward(self, x):
-        return self.model(x)
+        return self.model(x * 10000.0) / 10000.0
 
     def fit(self, X, y):
         self.input_shape = np.shape(X)[1:]
@@ -80,29 +82,35 @@ class FNNModel(torch.nn.Module, BaseEstimator, TransformerMixin):
 
         X = torch.from_numpy(X.astype(np.float32))
         y = torch.from_numpy(y.astype(np.float32))
+        validation_final_ix = int(len(X) * self.validation_size)
 
         self.optimizer = self.solver(self.parameters(), lr=self.lr)
         self.train()
         minloss = np.inf
         ix = 0
-        for epoch in tqdm(range(0, self.epochs)):
-            pred_y = self.forward(X)
+        for epoch in range(0, self.epochs):
+            def closure():
+                # Zero gradients, perform a backward pass,
+                # and update the weights.
+                self.optimizer.zero_grad()
 
-            # Compute and print loss
-            loss = self.loss_func(pred_y, y)
-            if minloss > loss:
-                minloss = loss
+                # Compute and print loss
+                loss = self.loss_func(self.forward(X[validation_final_ix:]), y[validation_final_ix:])
+                loss.backward()
+                self.losses["train"].append(loss.item())
+                return loss
+
+            self.optimizer.step(closure)
+
+            loss_valid = self.loss_func(self.forward(X[:validation_final_ix]), y[:validation_final_ix])
+            self.losses["valid"].append(loss_valid.item())
+            if minloss > loss_valid:
+                minloss = loss_valid
                 ix = epoch
             elif (epoch - ix) > self.no_improvement:  # early stopping by no improvement.
                 print(f"\rEarly stopping in epoch {epoch} by no improvement.")
                 break
-
-            # Zero gradients, perform a backward pass,
-            # and update the weights.
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-            print('\repoch {}, loss {}'.format(epoch, loss.item()))
+            print('\repoch {}: loss valid {}'.format(epoch, loss_valid.item()))
         self.eval()
 
     def predict(self, X):

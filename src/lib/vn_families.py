@@ -95,7 +95,7 @@ def vn_family_sampler(n, a_limits: Tuple[float, float], b_limits: Tuple[float, f
     return a, b, delta
 
 
-def get_known_unknown_indexes(mwhere, learn_higher_modes_only=False):
+def get_known_unknown_indexes(mwhere, learn_higher_modes_only=False, quantity=None):
     start = max((0, mwhere.start * 2 - 1))
     known_indexes = list(range(start, start + mwhere.m))
     unknown_indexes = [i for i in range(1 + 2 * K_MAX) if i not in known_indexes]
@@ -103,7 +103,7 @@ def get_known_unknown_indexes(mwhere, learn_higher_modes_only=False):
         change = np.where(np.diff(unknown_indexes) > 1)[0]
         change = change[0] if len(change) > 0 else -1
         unknown_indexes = unknown_indexes[change + 1:]
-    return known_indexes, unknown_indexes
+    return known_indexes, unknown_indexes[:quantity]
 
 
 def get_k_values(negative=False):
@@ -111,11 +111,12 @@ def get_k_values(negative=False):
 
 
 def learn_eigenvalues(model: Pipeline):
-    def decorated_function(n_train, n_test, vn_family, mwhere: MWhere, k_decay_help, learn_higher_modes_only=True):
+    def decorated_function(n_train, n_test, vn_family, mwhere: MWhere, k_decay_help, learn_higher_modes_only=True,
+                           quantity=None):
         a, b, delta = vn_family_sampler(n_test + n_train, a_limits=vn_family.a, b_limits=vn_family.b,
                                         delta_limits=vn_family.delta)
         # shape(n, 1+2*k_max)
-        known_indexes, unknown_indexes = get_known_unknown_indexes(mwhere, learn_higher_modes_only)
+        known_indexes, unknown_indexes = get_known_unknown_indexes(mwhere, learn_higher_modes_only, quantity)
         eigenvalues, noise = get_k_eigenvalues(a, b, delta, K_MAX, vn_family.c, vn_family.s)
         k = get_k_values(negative=False)
         k[0] += 1  # +1 to avoid the 0 division
@@ -137,12 +138,12 @@ def learn_eigenvalues(model: Pipeline):
 #                   Plots                     #
 # ========= ========== =========== ========== #
 @perplex_plot()
-def k_plot(fig, ax, error, model, mwhere, n_train, learn_higher_modes_only, vn_family, add_mwhere=False,
+def k_plot(fig, ax, error, model, mwhere, n_train, learn_higher_modes_only, vn_family, quantity, add_mwhere=False,
            color_dict=None, label_var="model"):
-    error, mwhere, n_train, model, learn_higher_modes_only, vn_family = tuple(
-        zip(*[(e, m, n, ex, l, vn) for e, m, n, ex, l, vn in
+    error, mwhere, n_train, model, learn_higher_modes_only, vn_family, quantity = tuple(
+        zip(*[(e, m, n, ex, l, vn, q) for e, m, n, ex, l, vn, q in
               zip(error, mwhere, n_train, model, learn_higher_modes_only,
-                  vn_family)
+                  vn_family, quantity)
               if
               e is not None and ex is not None])
     )
@@ -153,8 +154,9 @@ def k_plot(fig, ax, error, model, mwhere, n_train, learn_higher_modes_only, vn_f
     k_full[k_full < 0] = -np.log10(-k_full[k_full < 0])
 
     # for i, (exp_i, y_i, ms, lhmo, ntr) in enumerate(zip(model, mse, mwhere, learn_higher_modes_only, n_train)):
-    for i, (ntr, y_i, ms, hmonly, mod) in enumerate(zip(n_train, mse, mwhere, learn_higher_modes_only, model)):
-        known_indexes, unknown_indexes = get_known_unknown_indexes(ms, hmonly)
+    for i, (ntr, y_i, ms, hmonly, mod, q) in enumerate(zip(n_train, mse, mwhere, learn_higher_modes_only, model, quantity)):
+        y_i = np.reshape(y_i, (-1,))
+        known_indexes, unknown_indexes = get_known_unknown_indexes(ms, hmonly, q)
         # change = np.where(np.diff(unknown_indexes) > 1)[0][0]
         # y_i = y_i[change:]
         k = k_full[unknown_indexes]  # [change:]
@@ -163,6 +165,8 @@ def k_plot(fig, ax, error, model, mwhere, n_train, learn_higher_modes_only, vn_f
             label_i = mod
         elif label_var == "n_train":
             label_i = ntr
+        elif label_var == "quantity":
+            label_i = q
         else:
             raise Exception(f"label_var {label_var} not implemented.")
 

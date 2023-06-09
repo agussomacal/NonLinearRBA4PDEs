@@ -12,3 +12,4 @@ pandas
 makefun
 eco2ai
 -i https://test.pypi.org/simple/ PerplexityLab==0.0.1b0
+tensorflow
