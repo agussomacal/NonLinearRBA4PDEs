@@ -1,4 +1,10 @@
-import matplotlib.pylab as plt
+import os
+import sys
+
+# To be able to import the files of this repo as a package
+sys.path.append(os.getcwd().split("NonLinearRBA4PDEs")[0] + "NonLinearRBA4PDEs/src/")
+sys.path.append(os.getcwd().split("NonLinearRBA4PDEs")[0] + "NonLinearRBA4PDEs/")
+
 import seaborn as sns
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import RandomForestRegressor
