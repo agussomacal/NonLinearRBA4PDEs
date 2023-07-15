@@ -1,12 +1,12 @@
 pandas
 matplotlib
 tqdm
+seaborn
+scikit-learn
 makefun
 eco2ai
--i https://test.pypi.org/simple/ PerplexityLab==0.0.1b0
 python-benedict
 numpy
-seaborn==0.12.2
-scikit-learn==1.2.2
 joblib
 pathos
+git+https://github.com/agussomacal/PerplexityLab
