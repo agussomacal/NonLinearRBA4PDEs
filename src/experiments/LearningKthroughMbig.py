@@ -13,7 +13,7 @@ from lib.vn_families import get_k_values
 ZERO = 5e-4
 
 
-@perplex_plot
+@perplex_plot()
 def k_plot(fig, ax, error, experiments, mwhere, n_train, learn_higher_modes_only, add_mwhere=False, color_dict=None):
     error, mwhere, n_train, experiments, learn_higher_modes_only = tuple(
         zip(*[(e, m, n, ex, l) for e, m, n, ex, l in zip(error, mwhere, n_train, experiments, learn_higher_modes_only)

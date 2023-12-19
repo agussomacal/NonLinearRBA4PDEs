@@ -123,7 +123,7 @@ def learn_eigenvalues(model: Pipeline):
     return decorated_function
 
 
-@perplex_plot
+@perplex_plot()
 def k_plot(fig, ax, error, experiments, mwhere, learn_higher_modes_only, n_train, label_var="experiments",
            add_mwhere=False, color_dict=None):
     n_train, error, mwhere, experiments, learn_higher_modes_only = tuple(
